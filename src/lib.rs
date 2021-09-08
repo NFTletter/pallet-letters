@@ -32,10 +32,10 @@ pub mod pallet {
 	#[derive(Encode, Decode, Default, Clone, PartialEq)]
 	#[cfg_attr(feature = "std", derive(Debug))]
 	pub struct Letter<Hash, Balance> {
-		id: Hash,
-		title: Vec<u8>,
-		author: Vec<u8>,
-		price: Balance,
+		pub id: Hash,
+		pub title: Vec<u8>,
+		pub author: Vec<u8>,
+		pub price: Balance,
 		pages: Vec<Vec<u8>>,
 	}
 
