@@ -425,5 +425,11 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		pub fn read_page(letter_id: T::Hash, page_index: usize) -> sp_std::result::Result<Vec<u8>, DispatchError> {
+			let letter = Self::letter(letter_id);
+			let page = letter.pages[page_index].clone();
+			Ok(page)
+		}
 	}
 }
