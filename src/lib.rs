@@ -143,11 +143,13 @@ pub mod pallet {
 		NoneValue,
 		NonceOverflow,
 		NonExistentLetter,
+		NonExistentPage,
 		LetterCountOverflow,
 		TitleLenOverflow,
 		PageLenOverflow,
 		AuthorLenOverflow,
 		PageCountOverflow,
+		LetterNotOwned,
 	}
 
 	// Dispatchable functions
@@ -198,7 +200,7 @@ pub mod pallet {
 				return Err(Error::<T>::PageCountOverflow.into());
 			}
 
-			Self::mint_page(letter_id, page)?;
+			Self::mint_page(sender.clone(), letter_id, page)?;
 
 			Self::deposit_event(Event::PageWritten(sender, letter_id));
 
@@ -365,8 +367,15 @@ pub mod pallet {
 		}
 
 		// Helper to mint page
-		fn mint_page(letter_id: T::Hash, page: Vec<u8>) -> DispatchResult {
+		fn mint_page(sender: T::AccountId, letter_id: T::Hash, page: Vec<u8>) -> DispatchResult {
+			// check letter exists
 			ensure!(<LetterOwner<T>>::contains_key(letter_id), "Letter non-existent");
+
+			// check sender owns the letter
+			let letter_owner = Self::owner_of(letter_id);
+			if letter_owner != Some(sender) {
+				return Err(Error::<T>::LetterNotOwned.into());
+			}
 
 			let mut letter = Self::letter(letter_id);
 			letter.pages.push(page);
@@ -428,6 +437,12 @@ pub mod pallet {
 
 		pub fn read_page(letter_id: T::Hash, page_index: usize) -> sp_std::result::Result<Vec<u8>, DispatchError> {
 			let letter = Self::letter(letter_id);
+
+			// check page exists
+			if letter.pages.len() == 0 || letter.pages.len() <= page_index {
+				return Err(Error::<T>::NonExistentPage.into());
+			}
+
 			let page = letter.pages[page_index].clone();
 			Ok(page)
 		}

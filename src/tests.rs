@@ -41,6 +41,44 @@ fn write_page_works() {
 
 	});
 }
+
+#[test]
+fn write_page_wrong_owner_error() {
+	new_test_ext().execute_with(|| {
+		let title = "𝔥𝔢𝔩𝔩𝔬 𝔴𝔬𝔯𝔩𝔡".as_bytes().to_vec();
+		let author = "𝖇𝖊𝖆𝖗".as_bytes().to_vec();
+
+		assert_ok!(Letters::init_letter(Origin::signed(1), title.clone(), author.clone()));
+
+		let letter_id = Letters::letter_by_index(1);
+		let page = "𝔯𝔬𝔰𝔢𝔰 𝔞𝔯𝔢 𝔯𝔢𝔡 🌹".as_bytes().to_vec();
+
+		assert_noop!(Letters::write_page(Origin::signed(2), letter_id, page.clone()), Error::<Test>::LetterNotOwned);
+		assert_noop!(Letters::read_page(letter_id, 0), Error::<Test>::NonExistentPage);
+	});
+}
+
+#[test]
+fn non_existent_page_error() {
+	new_test_ext().execute_with(|| {
+		let title = "𝔥𝔢𝔩𝔩𝔬 𝔴𝔬𝔯𝔩𝔡".as_bytes().to_vec();
+		let author = "𝖇𝖊𝖆𝖗".as_bytes().to_vec();
+
+		assert_ok!(Letters::init_letter(Origin::signed(1), title.clone(), author.clone()));
+		let letter_id = Letters::letter_by_index(1);
+		let page = "𝔯𝔬𝔰𝔢𝔰 𝔞𝔯𝔢 𝔯𝔢𝔡 🌹".as_bytes().to_vec();
+
+		assert_ok!(Letters::write_page(Origin::signed(1), letter_id, page.clone()));
+		assert_eq!(Letters::read_page(letter_id, 0).unwrap(), page);
+
+		assert_noop!(Letters::read_page(letter_id, 1), Error::<Test>::NonExistentPage);
+
+		let page = "𝔳𝔦𝔬𝔩𝔢𝔱𝔰 𝔞𝔯𝔢 𝔟𝔩𝔲𝔢 ❃".as_bytes().to_vec();
+		assert_ok!(Letters::write_page(Origin::signed(1), letter_id, page.clone()));
+		assert_eq!(Letters::read_page(letter_id, 1).unwrap(), page);
+
+	});
+}
 //
 // #[test]
 // fn correct_error_for_none_value() {
