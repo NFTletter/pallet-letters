@@ -53,6 +53,7 @@ fn transfer_works() {
 		let alice = 1;
 		let bob = 2;
 		let alice_signed = Origin::signed(alice);
+		let bob_signed = Origin::signed(bob);
 
 		assert_ok!(Letters::init_letter(alice_signed.clone(), title.clone(), author.clone()));
 
@@ -69,12 +70,14 @@ fn transfer_works() {
 		assert_ok!(Letters::transfer(alice_signed, bob, letter_id));
 		println!("{:?}", Some(bob));
 
-		let a = Letters::owned_letter_count(alice);
-
-		// assert_eq!(Letters::letter_of_owner_by_index((bob, 1)), letter_id);
+		assert_eq!(Letters::letter_of_owner_by_index((bob, 1)), letter_id);
 		assert_eq!(Letters::owner_of(letter_id), Some(bob));
 		assert_eq!(Letters::owned_letter_count(bob), 1);
 		assert_eq!(Letters::owned_letter_count(alice), 0);
+
+		let page = "𝔳𝔦𝔬𝔩𝔢𝔱𝔰 𝔞𝔯𝔢 𝔟𝔩𝔲𝔢 ❃".as_bytes().to_vec();
+		assert_ok!(Letters::write_page(bob_signed, letter_id, page.clone()));
+		assert_eq!(Letters::read_page(letter_id, 1).unwrap(), page);
 
 	});
 }

@@ -398,13 +398,13 @@ pub mod pallet {
 			// count of letters owned by address to send from
 			let owned_letter_count_from = Self::owned_letter_count(&from);
 
-			// count of letters owned by address to send to
-			let owned_letter_count_to = Self::owned_letter_count(&to);
-
 			// increment the amount of owned letters
 			let new_owned_letter_count_from = owned_letter_count_from
 				.checked_sub(1)
 				.ok_or("Transfer causes underflow of 'from' letter balance")?;
+
+			// count of letters owned by address to send to
+			let owned_letter_count_to = Self::owned_letter_count(&to);
 
 			// increment the amount of owned letters
 			let new_owned_letter_count_to = owned_letter_count_to
