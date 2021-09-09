@@ -403,8 +403,8 @@ pub mod pallet {
 
 			// increment the amount of owned letters
 			let new_owned_letter_count_from = owned_letter_count_from
-				.checked_add(1)
-				.ok_or("Transfer causes overflow of 'from' letter balance")?;
+				.checked_sub(1)
+				.ok_or("Transfer causes underflow of 'from' letter balance")?;
 
 			// increment the amount of owned letters
 			let new_owned_letter_count_to = owned_letter_count_to
