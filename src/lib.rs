@@ -426,7 +426,7 @@ pub mod pallet {
 			<LetterOwner<T>>::insert(&letter_id, Some(&to));
 			<OwnedLettersIndex<T>>::insert(letter_id, owned_letter_count_to);
 			<OwnedLettersArray<T>>::remove((from.clone(), new_owned_letter_count_from));
-			<OwnedLettersArray<T>>::insert((to.clone(), owned_letter_count_to), letter_id);
+			<OwnedLettersArray<T>>::insert((to.clone(), new_owned_letter_count_to), letter_id);
 			<OwnedLettersCount<T>>::insert(&from, new_owned_letter_count_from);
 			<OwnedLettersCount<T>>::insert(&to, new_owned_letter_count_to);
 

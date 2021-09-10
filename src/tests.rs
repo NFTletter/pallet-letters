@@ -20,6 +20,19 @@ fn init_letter_works() {
 
 		assert_eq!(Letters::letter(letter_id).title, title);
 		assert_eq!(Letters::letter(letter_id).author, author);
+
+		let title = "hello world".as_bytes().to_vec();
+		let author = "bear".as_bytes().to_vec();
+
+		assert_ok!(Letters::init_letter(Origin::signed(1), title.clone(), author.clone()));
+
+		assert_eq!(Letters::all_letters_count(), 2);
+
+		let letter_id = Letters::letter_by_index(2);
+
+		assert_eq!(Letters::letter(letter_id).title, title);
+		assert_eq!(Letters::letter(letter_id).author, author);
+
 	});
 }
 
@@ -68,7 +81,6 @@ fn transfer_works() {
 		assert_eq!(Letters::owned_letter_count(bob), 0);
 
 		assert_ok!(Letters::transfer(alice_signed, bob, letter_id));
-		println!("{:?}", Some(bob));
 
 		assert_eq!(Letters::letter_of_owner_by_index((bob, 1)), letter_id);
 		assert_eq!(Letters::owner_of(letter_id), Some(bob));
@@ -76,7 +88,7 @@ fn transfer_works() {
 		assert_eq!(Letters::owned_letter_count(alice), 0);
 
 		let page = "𝔳𝔦𝔬𝔩𝔢𝔱𝔰 𝔞𝔯𝔢 𝔟𝔩𝔲𝔢 ❃".as_bytes().to_vec();
-		assert_ok!(Letters::write_page(bob_signed, letter_id, page.clone()));
+		assert_ok!(Letters::write_page(bob_signed.clone(), letter_id, page.clone()));
 		assert_eq!(Letters::read_page(letter_id, 1).unwrap(), page);
 
 	});
