@@ -292,7 +292,7 @@ pub mod pallet {
 			// Transfer ownership of letter
 			Self::transfer_from(owner.clone(), sender.clone(), letter_id).expect(
 				"`owner` is shown to own the letter; \
-   					 `owner` must have greater than 0 letters, so transfer cannot cause underflow; \
+    				`owner` must have greater than 0 letters, so transfer cannot cause underflow; \
     				`all_letter_count` shares the same type as `owned_letter_count` \
     				and minting ensure there won't ever be more than `max()` letter, \
     				which means transfer cannot cause an overflow;",
