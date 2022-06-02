@@ -21,7 +21,8 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_core::H256;
-	use sp_std::prelude::*;
+	use scale_info::TypeInfo;
+	use scale_info::prelude::vec::Vec;
 
 	// TODO: turn into genesis parameters
 	pub const MAX_TITLE_LEN: usize = 64;
@@ -29,20 +30,34 @@ pub mod pallet {
 	pub const MAX_PAGE_LEN: usize = 8192;
 	pub const MAX_NUM_PAGES: usize = 64;
 
-	#[derive(Encode, Decode, Default, Clone, PartialEq)]
-	#[cfg_attr(feature = "std", derive(Debug))]
-	pub struct Letter<Hash, Balance> {
-		pub id: Hash,
-		pub title: Vec<u8>,
-		pub author: Vec<u8>,
-		pub price: Balance,
-		pages: Vec<Vec<u8>>,
+	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[scale_info(skip_type_params(T))]
+	#[codec(mel_bound())]
+	pub struct Letter<T: Config> {
+		pub id: T::Hash,
+		pub title: BoundedVec<u8, T::MaxTitleLength>,
+		pub author: BoundedVec<u8, T::MaxAuthorLength>,
+		pub price: T::Balance,
+		pages: BoundedVec<BoundedVec<u8, T::MaxPageLength>, T::MaxPageNum>,
 	}
 
 	#[pallet::config]
 	pub trait Config: pallet_balances::Config + frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		type LetterRandomness: Randomness<H256, u32>;
+		type Currency: Currency<Self::AccountId>;
+
+		#[pallet::constant]
+		type MaxTitleLength: Get<u32>;
+
+		#[pallet::constant]
+		type MaxAuthorLength: Get<u32>;
+
+		#[pallet::constant]
+		type MaxPageLength: Get<u32>;
+
+		#[pallet::constant]
+		type MaxPageNum: Get<u32>;
 	}
 
 	#[pallet::pallet]
@@ -57,7 +72,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn letter)]
 	pub(super) type Letters<T: Config> =
-		StorageMap<_, Twox64Concat, T::Hash, Letter<T::Hash, T::Balance>, ValueQuery>;
+		StorageMap<_, Twox64Concat, T::Hash, Letter<T>>;
 
 	// Keeps track of what accounts own what Letter.
 	#[pallet::storage]
@@ -99,7 +114,7 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub letters: Vec<(T::AccountId, T::Hash, T::Balance)>,
+		pub letters: Vec<(Vec<u8>, Vec<u8>, Vec<u8>, T::AccountId, T::Hash, T::Balance)>,
 	}
 
 	#[cfg(feature = "std")]
@@ -112,22 +127,29 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
-			for &(ref acct, hash, balance) in &self.letters {
+			for (title, author, page, acct, hash, balance) in &self.letters {
+				let bounded_title: BoundedVec<u8, T::MaxTitleLength> = title.clone().try_into().map_err(|()| Error::<T>::TitleLenOverflow).unwrap();
+				let bounded_author: BoundedVec<u8, T::MaxAuthorLength> = author.clone().try_into().map_err(|()| Error::<T>::AuthorLenOverflow).unwrap();
+				let bounded_page: BoundedVec<u8, T::MaxPageLength> = page.clone().try_into().map_err(|()| Error::<T>::PageLenOverflow).unwrap();
+
+				let mut pages = Vec::new();
+				pages.push(bounded_page);
+				let bounded_pages: BoundedVec<BoundedVec<u8, T::MaxPageLength>, T::MaxPageNum> = pages.try_into().map_err(|()| Error::<T>::PageLenOverflow).unwrap();
+
 				let l = Letter {
-					id: hash,
-					title: "𝔥𝔢𝔩𝔩𝔬 𝔴𝔬𝔯𝔩𝔡".as_bytes().to_vec(),
-					author: "𝖇𝖊𝖆𝖗".as_bytes().to_vec(),
-					price: balance,
-					pages: Vec::new(),
+					id: hash.clone(),
+					title: bounded_title,
+					author: bounded_author,
+					price: balance.clone(),
+					pages: bounded_pages,
 				};
 
-				let _ = <Pallet<T>>::mint_letter(acct.clone(), hash, l);
+				let _ = <Pallet<T>>::mint_letter(acct.clone(), hash.clone(), l);
 			}
 		}
 	}
 
 	#[pallet::event]
-	#[pallet::metadata(T::AccountId = "AccountId", T::LetterIndex = "LetterIndex")]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		LetterInit(T::AccountId, T::Hash),
@@ -159,8 +181,8 @@ pub mod pallet {
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn init_letter(
 			origin: OriginFor<T>,
-			title: Vec<u8>,
-			author: Vec<u8>,
+			title: BoundedVec<u8, T::MaxTitleLength>,
+			author: BoundedVec<u8, T::MaxAuthorLength>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 			let random_hash = Self::random_hash(&sender);
@@ -173,8 +195,15 @@ pub mod pallet {
 				return Err(Error::<T>::AuthorLenOverflow.into());
 			}
 
+			let page = Vec::new();
+			let bounded_page: BoundedVec<u8, T::MaxPageLength> = page.try_into().map_err(|()| Error::<T>::PageLenOverflow)?;
+
+			let mut pages = Vec::new();
+			pages.push(bounded_page);
+			let bounded_pages: BoundedVec<BoundedVec<u8, T::MaxPageLength>, T::MaxPageNum> = pages.try_into().map_err(|()| Error::<T>::PageLenOverflow)?;
+
 			let letter =
-				Letter { id: random_hash, title, author, price: 0u8.into(), pages: Vec::new() };
+				Letter { id: random_hash, title, author, price: 0u8.into(), pages: bounded_pages };
 
 			Self::mint_letter(sender, random_hash, letter)?;
 			Self::increment_nonce()?;
@@ -195,7 +224,12 @@ pub mod pallet {
 				return Err(Error::<T>::PageLenOverflow.into());
 			}
 
-			let page_count = Self::letter(letter_id).pages.len();
+			let letter = match Self::letter(letter_id) {
+				Some(l) => l,
+				None => return Err(Error::<T>::NonExistentLetter.into())
+			};
+
+			let page_count = letter.pages.len();
 			if page_count == MAX_NUM_PAGES {
 				return Err(Error::<T>::PageCountOverflow.into());
 			}
@@ -225,7 +259,10 @@ pub mod pallet {
 			ensure!(owner == sender, "You do not own this letter");
 
 			// Set the Letter price.
-			let mut letter = Self::letter(letter_id);
+			let mut letter = match Self::letter(letter_id) {
+				Some(l) => l,
+				None => return Err(Error::<T>::NonExistentLetter.into())
+			};
 			letter.price = new_price;
 
 			// Update new letter infomation to storage.
@@ -273,7 +310,10 @@ pub mod pallet {
 			ensure!(owner != sender, "You can't buy your own letter");
 
 			// Get the price of the letter
-			let mut letter = Self::letter(letter_id);
+			let mut letter = match Self::letter(letter_id) {
+				Some(l) => l,
+				None => return Err(Error::<T>::NonExistentLetter.into())
+			};
 			let letter_price = letter.price;
 
 			// Check if the letter is for sale.
@@ -332,7 +372,7 @@ pub mod pallet {
 		fn mint_letter(
 			to: T::AccountId,
 			letter_id: T::Hash,
-			new_letter: Letter<T::Hash, T::Balance>,
+			new_letter: Letter<T>,
 		) -> DispatchResult {
 			ensure!(!<LetterOwner<T>>::contains_key(letter_id), "Letter already contains_key");
 
@@ -377,8 +417,16 @@ pub mod pallet {
 				return Err(Error::<T>::LetterNotOwned.into());
 			}
 
-			let mut letter = Self::letter(letter_id);
-			letter.pages.push(page);
+			let mut letter = match Self::letter(letter_id) {
+				Some(l) => l,
+				None => return Err(Error::<T>::NonExistentLetter.into())
+			};
+
+			let bounded_page: BoundedVec<u8, T::MaxPageLength> = page.try_into().map_err(|()| Error::<T>::PageLenOverflow)?;
+			match letter.pages.try_push(bounded_page) {
+				Ok(_) => (),
+				Err(_) => return Err(Error::<T>::PageCountOverflow.into()),
+			};
 
 			<Letters<T>>::insert(letter_id, letter);
 
@@ -435,8 +483,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub fn read_page(letter_id: T::Hash, page_index: usize) -> sp_std::result::Result<Vec<u8>, DispatchError> {
-			let letter = Self::letter(letter_id);
+		pub fn read_page(letter_id: T::Hash, page_index: usize) -> sp_std::result::Result<BoundedVec<u8, T::MaxPageLength>, DispatchError> {
+			let letter = match Self::letter(letter_id) {
+				Some(l) => l,
+				None => return Err(Error::<T>::NonExistentLetter.into()),
+			};
 
 			// check page exists
 			if letter.pages.len() == 0 || letter.pages.len() <= page_index {
