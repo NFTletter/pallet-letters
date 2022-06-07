@@ -17,30 +17,38 @@ We want to explore the possibility of writing text on-chain, as well as the econ
 
 A letter is represented by:
 ```rust
-pub struct Letter<Hash, Balance> { 
-    id: Hash,
-    title: Vec<u8>,
-    author: Vec<u8>,
-    price: Balance,
-    pages: Vec<Vec<u8>>,
+pub struct Letter<T: Config> {
+    pub id: T::Hash,
+    pub title: BoundedVec<u8, T::MaxTitleLength>,
+    pub author: BoundedVec<u8, T::MaxAuthorLength>,
+    pub price: T::Balance,
+    pages: BoundedVec<BoundedVec<u8, T::MaxPageLength>, T::MaxPageNum>,
 }
 ```
-
-Letter sizes are bound to upper limits, namely:
-```rust
-pub const MAX_TITLE_LEN: usize = 64;
-pub const MAX_AUTHOR_LEN: usize = 64;
-pub const MAX_NUM_PAGES: usize = 64;
-pub const MAX_PAGE_LEN: usize = 8192;
-```
-Currently these bounds are set as constants, but the plan is to turn them into Genesis parameters.
-
 The number of characters written into each letter determines the fees to be paid for the extrinsic which will write it into storage.
 
-## Roadmap
+Letter sizes are bound to upper limits, defined by runtime constants:
+```rust
+#[pallet::constant]
+type MaxTitleLength: Get<u32>;
 
-- [x] Bootstrap
-- [ ] [Minting Fees](https://substrate.dev/docs/en/knowledgebase/runtime/fees)
-- [ ] Configurable upper bounds at Genesis
-- [ ] [Tests](https://substrate.dev/docs/en/knowledgebase/runtime/tests)
-- [ ] Front-end
+#[pallet::constant]
+type MaxAuthorLength: Get<u32>;
+
+#[pallet::constant]
+type MaxPageLength: Get<u32>;
+
+#[pallet::constant]
+type MaxPageNum: Get<u32>;
+```
+
+These constants need to be set on `src/runtime.rs` of the chain:
+```rust
+parameter_types! {
+    ...
+    pub const MaxTitleLength: u32 = 64;
+    pub const MaxAuthorLength: u32 = 64;
+    pub const MaxPageLength: u32 = 8192;
+    pub const MaxPageNum: u32 = 64;
+}
+```
