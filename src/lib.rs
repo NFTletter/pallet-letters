@@ -24,12 +24,6 @@ pub mod pallet {
 	use scale_info::TypeInfo;
 	use scale_info::prelude::vec::Vec;
 
-	// TODO: turn into genesis parameters
-	pub const MAX_TITLE_LEN: usize = 64;
-	pub const MAX_AUTHOR_LEN: usize = 64;
-	pub const MAX_PAGE_LEN: usize = 8192;
-	pub const MAX_NUM_PAGES: usize = 64;
-
 	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(T))]
 	#[codec(mel_bound())]
@@ -187,11 +181,11 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			let random_hash = Self::random_hash(&sender);
 
-			if title.len() > MAX_TITLE_LEN {
+			if title.len() > T::MaxTitleLength::get() as usize {
 				return Err(Error::<T>::TitleLenOverflow.into());
 			}
 
-			if author.len() > MAX_AUTHOR_LEN {
+			if author.len() > T::MaxAuthorLength::get() as usize {
 				return Err(Error::<T>::AuthorLenOverflow.into());
 			}
 
@@ -220,7 +214,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			if page.len() > MAX_PAGE_LEN {
+			if page.len() > T::MaxPageLength::get() as usize {
 				return Err(Error::<T>::PageLenOverflow.into());
 			}
 
@@ -230,7 +224,7 @@ pub mod pallet {
 			};
 
 			let page_count = letter.pages.len();
-			if page_count == MAX_NUM_PAGES {
+			if page_count == T::MaxPageNum::get() as usize {
 				return Err(Error::<T>::PageCountOverflow.into());
 			}
 
