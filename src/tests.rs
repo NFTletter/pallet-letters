@@ -134,21 +134,3 @@ fn non_existent_page_error() {
 
 	});
 }
-// -------------------------------------------
-// templates
-
-// #[test]
-// fn xxx_works() {
-// 	new_test_ext().execute_with(|| {
-// 		assert_ok!(TemplateModule::do_something(Origin::signed(1), 42));
-// 		assert_eq!(TemplateModule::something(), Some(42));
-// 	});
-// }
-
-
-// #[test]
-// fn xxx_error() {
-// 	new_test_ext().execute_with(|| {
-//  		assert_noop!(TemplateModule::cause_error(Origin::signed(1)), Error::<Test>::NoneValue);
-// 	});
-// }
