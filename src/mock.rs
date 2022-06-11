@@ -29,7 +29,7 @@ parameter_types! {
 }
 
 impl system::Config for Test {
-	type BaseCallFilter = frame_support::traits::AllowAll;
+	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
@@ -52,11 +52,24 @@ impl system::Config for Test {
 	type SystemWeightInfo = ();
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = ();
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
+}
+
+parameter_types! {
+	pub const MaxTitleLength: u32 = 64;
+	pub const MaxAuthorLength: u32 = 64;
+	pub const MaxPageLength: u32 = 8192;
+	pub const MaxPageNum: u32 = 64;
 }
 
 impl pallet_letters::Config for Test {
 	type Event = Event;
 	type LetterRandomness = MockRandom;
+	type Currency = Balances;
+	type MaxAuthorLength = MaxAuthorLength;
+	type MaxPageLength = MaxPageLength;
+	type MaxPageNum = MaxPageNum;
+	type MaxTitleLength = MaxTitleLength;
 }
 
 parameter_types! {

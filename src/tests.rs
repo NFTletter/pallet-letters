@@ -18,8 +18,8 @@ fn init_letter_works() {
 
         let letter_id = Letters::letter_by_index(1);
 
-		assert_eq!(Letters::letter(letter_id).title, title);
-		assert_eq!(Letters::letter(letter_id).author, author);
+		assert_eq!(Letters::letter(letter_id).unwrap().title, title);
+		assert_eq!(Letters::letter(letter_id).unwrap().author, author);
 
 		let title = "hello world".as_bytes().to_vec();
 		let author = "bear".as_bytes().to_vec();
@@ -30,8 +30,8 @@ fn init_letter_works() {
 
 		let letter_id = Letters::letter_by_index(2);
 
-		assert_eq!(Letters::letter(letter_id).title, title);
-		assert_eq!(Letters::letter(letter_id).author, author);
+		assert_eq!(Letters::letter(letter_id).unwrap().title, title);
+		assert_eq!(Letters::letter(letter_id).unwrap().author, author);
 
 	});
 }
@@ -124,7 +124,7 @@ fn non_existent_page_error() {
 		let page = "𝔯𝔬𝔰𝔢𝔰 𝔞𝔯𝔢 𝔯𝔢𝔡 🌹".as_bytes().to_vec();
 
 		assert_ok!(Letters::write_page(Origin::signed(1), letter_id, page.clone()));
-		assert_eq!(Letters::read_page(letter_id, 0).unwrap(), page);
+		assert_eq!(Letters::read_page(letter_id, 0).unwrap().into_inner(), page);
 
 		assert_noop!(Letters::read_page(letter_id, 1), Error::<Test>::NonExistentPage);
 
