@@ -175,29 +175,21 @@ pub mod pallet {
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn init_letter(
 			origin: OriginFor<T>,
-			title: BoundedVec<u8, T::MaxTitleLength>,
-			author: BoundedVec<u8, T::MaxAuthorLength>,
+			title: Vec<u8>,
+			author: Vec<u8>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 			let random_hash = Self::random_hash(&sender);
 
-			if title.len() > T::MaxTitleLength::get() as usize {
-				return Err(Error::<T>::TitleLenOverflow.into());
-			}
+			let bounded_title: BoundedVec<u8, T::MaxTitleLength> = title.try_into().map_err(|()| Error::<T>::TitleLenOverflow)?;
 
-			if author.len() > T::MaxAuthorLength::get() as usize {
-				return Err(Error::<T>::AuthorLenOverflow.into());
-			}
+			let bounded_author: BoundedVec<u8, T::MaxAuthorLength> = author.try_into().map_err(|()| Error::<T>::AuthorLenOverflow)?;
 
-			let page = Vec::new();
-			let bounded_page: BoundedVec<u8, T::MaxPageLength> = page.try_into().map_err(|()| Error::<T>::PageLenOverflow)?;
-
-			let mut pages = Vec::new();
-			pages.push(bounded_page);
+			let mut pages: Vec<BoundedVec<u8, T::MaxPageLength>> = Vec::new();
 			let bounded_pages: BoundedVec<BoundedVec<u8, T::MaxPageLength>, T::MaxPageNum> = pages.try_into().map_err(|()| Error::<T>::PageLenOverflow)?;
 
 			let letter =
-				Letter { id: random_hash, title, author, price: 0u8.into(), pages: bounded_pages };
+				Letter { id: random_hash, title: bounded_title, author: bounded_author, price: 0u8.into(), pages: bounded_pages };
 
 			Self::mint_letter(sender, random_hash, letter)?;
 			Self::increment_nonce()?;
