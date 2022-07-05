@@ -185,7 +185,7 @@ pub mod pallet {
 
 			let bounded_author: BoundedVec<u8, T::MaxAuthorLength> = author.try_into().map_err(|()| Error::<T>::AuthorLenOverflow)?;
 
-			let mut pages: Vec<BoundedVec<u8, T::MaxPageLength>> = Vec::new();
+			let pages: Vec<BoundedVec<u8, T::MaxPageLength>> = Vec::new();
 			let bounded_pages: BoundedVec<BoundedVec<u8, T::MaxPageLength>, T::MaxPageNum> = pages.try_into().map_err(|()| Error::<T>::PageLenOverflow)?;
 
 			let letter =
