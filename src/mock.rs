@@ -69,6 +69,7 @@ impl pallet_letters::Config for Test {
 	type MaxPageLength = MaxPageLength;
 	type MaxPageNum = MaxPageNum;
 	type MaxTitleLength = MaxTitleLength;
+	type WeightInfo = ();
 }
 
 parameter_types! {
