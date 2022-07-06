@@ -17,10 +17,9 @@ pub mod pallet {
 		dispatch::DispatchResult,
 		pallet_prelude::*,
 		sp_runtime::traits::{Hash, Zero},
-		traits::{Currency, ExistenceRequirement, Randomness},
+		traits::{Currency, ExistenceRequirement},
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_core::H256;
 	use scale_info::TypeInfo;
 	use scale_info::prelude::vec::Vec;
 
@@ -38,7 +37,6 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: pallet_balances::Config + frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		type LetterRandomness: Randomness<H256, u32>;
 		type Currency: Currency<Self::AccountId>;
 
 		#[pallet::constant]
@@ -179,19 +177,20 @@ pub mod pallet {
 			author: Vec<u8>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-			let random_hash = Self::random_hash(&sender);
 
 			let bounded_title: BoundedVec<u8, T::MaxTitleLength> = title.try_into().map_err(|()| Error::<T>::TitleLenOverflow)?;
 
 			let bounded_author: BoundedVec<u8, T::MaxAuthorLength> = author.try_into().map_err(|()| Error::<T>::AuthorLenOverflow)?;
 
+			let letter_id = Self::letter_id(&sender, bounded_title.clone(), bounded_author.clone());
+
 			let pages: Vec<BoundedVec<u8, T::MaxPageLength>> = Vec::new();
 			let bounded_pages: BoundedVec<BoundedVec<u8, T::MaxPageLength>, T::MaxPageNum> = pages.try_into().map_err(|()| Error::<T>::PageLenOverflow)?;
 
 			let letter =
-				Letter { id: random_hash, title: bounded_title, author: bounded_author, price: 0u8.into(), pages: bounded_pages };
+				Letter { id: letter_id, title: bounded_title, author: bounded_author, price: 0u8.into(), pages: bounded_pages };
 
-			Self::mint_letter(sender, random_hash, letter)?;
+			Self::mint_letter(sender, letter_id, letter)?;
 			Self::increment_nonce()?;
 
 			Ok(())
@@ -346,12 +345,11 @@ pub mod pallet {
 			})
 		}
 
-		// Helper to generate random value
-		fn random_hash(sender: &T::AccountId) -> T::Hash {
+		// Helper to generate letter id
+		fn letter_id(sender: &T::AccountId, title: BoundedVec<u8, T::MaxTitleLength>, author: BoundedVec<u8, T::MaxAuthorLength>) -> T::Hash {
 			let nonce = <Nonce<T>>::get();
-			let seed = T::LetterRandomness::random_seed();
 
-			T::Hashing::hash_of(&(seed, &sender, nonce))
+			T::Hashing::hash_of(&(title, author, &sender, nonce))
 		}
 
 		// Helper to mint Letter

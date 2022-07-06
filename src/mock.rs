@@ -64,7 +64,6 @@ parameter_types! {
 
 impl pallet_letters::Config for Test {
 	type Event = Event;
-	type LetterRandomness = MockRandom;
 	type Currency = Balances;
 	type MaxAuthorLength = MaxAuthorLength;
 	type MaxPageLength = MaxPageLength;
