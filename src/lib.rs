@@ -152,7 +152,6 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		LetterInit(T::AccountId, T::Hash),
 		PageWritten(T::AccountId, T::Hash),
-		// TODO: page_index
 		PriceSet(T::AccountId, T::Hash, T::Balance),
 		Transferred(T::AccountId, T::AccountId, T::Hash),
 		Bought(T::AccountId, T::AccountId, T::Hash, T::Balance),
@@ -209,7 +208,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		// TODO: fees
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::write_page(page.len() as u32))]
 		pub fn write_page(
 			origin: OriginFor<T>,
