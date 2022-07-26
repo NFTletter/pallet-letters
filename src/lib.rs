@@ -11,7 +11,11 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod weights;
+use frame_support::traits::Currency;
 pub use weights::*;
+
+type BalanceOf<T> =
+	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -20,7 +24,7 @@ pub mod pallet {
 		dispatch::DispatchResult,
 		pallet_prelude::*,
 		sp_runtime::traits::{Hash, Zero},
-		traits::{Currency, ExistenceRequirement},
+		traits::{ExistenceRequirement, ReservableCurrency},
 	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::{prelude::vec::Vec, TypeInfo};
@@ -39,8 +43,24 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: pallet_balances::Config + frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		type Currency: Currency<Self::AccountId>;
+		type Currency: ReservableCurrency<Self::AccountId>;
 		type WeightInfo: WeightInfo;
+
+		/// The base amount of currency needed to reserve for starting a letter.
+		#[pallet::constant]
+		type LetterDepositBase: Get<BalanceOf<Self>>;
+
+		/// The amount of currency needed to reserve per byte in author and title of a letter.
+		#[pallet::constant]
+		type LetterDepositFactor: Get<BalanceOf<Self>>;
+
+		/// The base amount of currency needed to reserve for adding a page.
+		#[pallet::constant]
+		type PageDepositBase: Get<BalanceOf<Self>>;
+
+		/// The amount of currency needed to reserve per byte in page added.
+		#[pallet::constant]
+		type PageDepositFactor: Get<BalanceOf<Self>>;
 
 		#[pallet::constant]
 		type MaxTitleLength: Get<u32>;
@@ -66,7 +86,8 @@ pub mod pallet {
 	// Stores a Letter: it's unique traits and price.
 	#[pallet::storage]
 	#[pallet::getter(fn letter)]
-	pub(super) type Letters<T: Config> = StorageMap<_, Twox64Concat, T::Hash, Letter<T>>;
+	pub(super) type Letters<T: Config> =
+		StorageMap<_, Twox64Concat, T::Hash, (Letter<T>, BalanceOf<T>)>;
 
 	// Keeps track of what accounts own what Letter.
 	#[pallet::storage]
@@ -220,8 +241,8 @@ pub mod pallet {
 				return Err(Error::<T>::PageLenOverflow.into())
 			}
 
-			let letter = match Self::letter(letter_id) {
-				Some(l) => l,
+			let (letter, _) = match Self::letter(letter_id) {
+				Some((l, _)) => (l, ..),
 				None => return Err(Error::<T>::NonExistentLetter.into()),
 			};
 
@@ -255,14 +276,14 @@ pub mod pallet {
 			ensure!(owner == sender, "You do not own this letter");
 
 			// Set the Letter price.
-			let mut letter = match Self::letter(letter_id) {
-				Some(l) => l,
+			let (mut letter, reserve) = match Self::letter(letter_id) {
+				Some((l, r)) => (l, r),
 				None => return Err(Error::<T>::NonExistentLetter.into()),
 			};
 			letter.price = new_price;
 
 			// Update new letter infomation to storage.
-			<Letters<T>>::insert(letter_id, letter);
+			<Letters<T>>::insert(letter_id, (letter, reserve));
 
 			Self::deposit_event(Event::PriceSet(sender, letter_id, new_price));
 
@@ -306,8 +327,8 @@ pub mod pallet {
 			ensure!(owner != sender, "You can't buy your own letter");
 
 			// Get the price of the letter
-			let mut letter = match Self::letter(letter_id) {
-				Some(l) => l,
+			let (mut letter, reserve) = match Self::letter(letter_id) {
+				Some((l, r)) => (l, r),
 				None => return Err(Error::<T>::NonExistentLetter.into()),
 			};
 			let letter_price = letter.price;
@@ -336,7 +357,7 @@ pub mod pallet {
 
 			// Set the price of the letter to the new price it was sold at.
 			letter.price = ask_price.into();
-			<Letters<T>>::insert(letter_id, letter);
+			<Letters<T>>::insert(letter_id, (letter, reserve));
 
 			Self::deposit_event(Event::Bought(sender, owner, letter_id, letter_price));
 
@@ -387,8 +408,14 @@ pub mod pallet {
 				.checked_add(1)
 				.ok_or("Overflow adding a new letter to total supply")?;
 
+			// reserve page deposit
+			let reserve = T::LetterDepositBase::get() +
+				T::LetterDepositFactor::get() * (new_letter.title.len() as u32).into() +
+				T::LetterDepositFactor::get() * (new_letter.author.len() as u32).into();
+			T::Currency::reserve(&to, reserve)?;
+
 			// update storage with new letter
-			<Letters<T>>::insert(letter_id, new_letter);
+			<Letters<T>>::insert(letter_id, (new_letter, reserve));
 			<LetterOwner<T>>::insert(letter_id, Some(&to));
 
 			// write letter counting information to storage
@@ -412,23 +439,28 @@ pub mod pallet {
 
 			// check sender owns the letter
 			let letter_owner = Self::owner_of(letter_id);
-			if letter_owner != Some(sender) {
+			if letter_owner != Some(sender.clone()) {
 				return Err(Error::<T>::LetterNotOwned.into())
 			}
 
-			let mut letter = match Self::letter(letter_id) {
-				Some(l) => l,
+			let (mut letter, mut reserve) = match Self::letter(letter_id) {
+				Some((l, r)) => (l, r),
 				None => return Err(Error::<T>::NonExistentLetter.into()),
 			};
 
 			let bounded_page: BoundedVec<u8, T::MaxPageLength> =
 				page.try_into().map_err(|()| Error::<T>::PageLenOverflow)?;
-			match letter.pages.try_push(bounded_page) {
+			match letter.pages.try_push(bounded_page.clone()) {
 				Ok(_) => (),
 				Err(_) => return Err(Error::<T>::PageCountOverflow.into()),
 			};
 
-			<Letters<T>>::insert(letter_id, letter);
+			T::Currency::unreserve(&sender, reserve);
+			reserve += T::PageDepositBase::get() +
+				T::PageDepositFactor::get() * (bounded_page.len() as u32).into();
+			T::Currency::reserve(&sender, reserve)?;
+
+			<Letters<T>>::insert(letter_id, (letter, reserve));
 
 			Ok(())
 		}
@@ -442,6 +474,14 @@ pub mod pallet {
 			// verify rightful owner
 			let owner = Self::owner_of(letter_id).ok_or("No owner for this letter")?;
 			ensure!(owner == from, "account does not own this letter");
+
+			let (_, reserve) = match Self::letter(letter_id) {
+				Some((_, r)) => (.., r),
+				None => return Err(Error::<T>::NonExistentLetter.into()),
+			};
+
+			T::Currency::unreserve(&from, reserve);
+			T::Currency::reserve(&to, reserve)?;
 
 			// count of letters owned by address to send from
 			let owned_letter_count_from = Self::owned_letter_count(&from);
@@ -487,8 +527,8 @@ pub mod pallet {
 			letter_id: T::Hash,
 			page_index: usize,
 		) -> sp_std::result::Result<BoundedVec<u8, T::MaxPageLength>, DispatchError> {
-			let letter = match Self::letter(letter_id) {
-				Some(l) => l,
+			let (letter, _) = match Self::letter(letter_id) {
+				Some((l, _)) => (l, ..),
 				None => return Err(Error::<T>::NonExistentLetter.into()),
 			};
 

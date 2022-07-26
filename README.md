@@ -25,7 +25,6 @@ pub struct Letter<T: Config> {
     pages: BoundedVec<BoundedVec<u8, T::MaxPageLength>, T::MaxPageNum>,
 }
 ```
-The number of characters written into each letter determines the fees to be paid for the extrinsic which will write it into storage.
 
 Letter sizes are bound to upper limits, defined by runtime constants:
 ```rust
@@ -42,13 +41,39 @@ type MaxPageLength: Get<u32>;
 type MaxPageNum: Get<u32>;
 ```
 
-These constants need to be set on `src/runtime.rs` of the chain:
+Reserve deposits are also defined by runtime constants:
 ```rust
-parameter_types! {
-    ...
-    pub const MaxTitleLength: u32 = 64;
-    pub const MaxAuthorLength: u32 = 64;
-    pub const MaxPageLength: u32 = 8192;
-    pub const MaxPageNum: u32 = 64;
+/// The base amount of currency needed to reserve for starting a letter.
+#[pallet::constant]
+type LetterDepositBase: Get<BalanceOf<Self>>;
+
+/// The amount of currency needed to reserve per byte in author and title of a letter.
+#[pallet::constant]
+type LetterDepositFactor: Get<BalanceOf<Self>>;
+
+/// The base amount of currency needed to reserve for adding a page.
+#[pallet::constant]
+type PageDepositBase: Get<BalanceOf<Self>>;
+
+/// The amount of currency needed to reserve per byte in page added.
+#[pallet::constant]
+type PageDepositFactor: Get<BalanceOf<Self>>;
+```
+
+These constants are set on the configuration of the pallet at `src/runtime.rs` of the chain:
+```rust
+impl pallet_letters::Config for Runtime {
+    // ...
+    type MaxAuthorLength = ConstU32<64>;
+    type MaxPageLength = ConstU32<64>;
+    type MaxPageNum = ConstU32<8192>;
+    type MaxTitleLength = ConstU32<64>;
+    type LetterDepositBase = ConstU128<50>;
+    type LetterDepositFactor = ConstU128<5>;
+    type PageDepositBase = ConstU128<10>;
+    type PageDepositFactor = ConstU128<1>;
 }
 ```
+
+Therefore, the number of bytes written into the title, author and pages of each letter determines the reserve deposits when writing them into storage.
+

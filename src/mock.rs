@@ -10,6 +10,11 @@ use sp_runtime::{
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
+pub const LETTER_DEPOSIT_BASE: u32 = 50;
+pub const LETTER_DEPOSIT_FACTOR: u32 = 5;
+pub const PAGE_DEPOSIT_BASE: u32 = 10;
+pub const PAGE_DEPOSIT_FACTOR: u32 = 1;
+
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -60,6 +65,10 @@ parameter_types! {
 	pub const MaxAuthorLength: u32 = 64;
 	pub const MaxPageLength: u32 = 8192;
 	pub const MaxPageNum: u32 = 64;
+	pub const LetterDepositBase: u32 = LETTER_DEPOSIT_BASE;
+	pub const LetterDepositFactor: u32 = LETTER_DEPOSIT_FACTOR;
+	pub const PageDepositBase: u32 = PAGE_DEPOSIT_BASE;
+	pub const PageDepositFactor: u32 = PAGE_DEPOSIT_FACTOR;
 }
 
 impl pallet_letters::Config for Test {
@@ -70,6 +79,10 @@ impl pallet_letters::Config for Test {
 	type MaxPageNum = MaxPageNum;
 	type MaxTitleLength = MaxTitleLength;
 	type WeightInfo = ();
+	type LetterDepositBase = LetterDepositBase;
+	type LetterDepositFactor = LetterDepositFactor;
+	type PageDepositBase = PageDepositBase;
+	type PageDepositFactor = PageDepositFactor;
 }
 
 parameter_types! {
