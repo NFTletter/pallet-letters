@@ -5,7 +5,10 @@ use super::*;
 #[allow(unused)]
 use crate::Pallet as Letters;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller, Vec};
-use frame_support::traits::{Currency, Get};
+use frame_support::{
+	sp_runtime::traits::Bounded,
+	traits::{Currency, Get},
+};
 use frame_system::RawOrigin;
 
 fn create_vec(n: u32) -> Vec<u8> {
@@ -25,14 +28,16 @@ benchmarks! {
 		let author = create_vec(a);
 
 		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::make_free_balance_be(&caller, 10000u32.into());
 	}: _(RawOrigin::Signed(caller), title, author)
 	verify {
 		let title = create_vec(t);
 		let author = create_vec(a);
 
 		let letter_id: T::Hash = Letters::<T>::letter_by_index(1);
-		assert_eq!(Letters::<T>::letter(letter_id).unwrap().title, title);
-		assert_eq!(Letters::<T>::letter(letter_id).unwrap().author, author);
+		let (letter, _) = Letters::<T>::letter(letter_id).unwrap();
+		assert_eq!(letter.title, title);
+		assert_eq!(letter.author, author);
 	}
 
 	write_page {
@@ -41,6 +46,7 @@ benchmarks! {
 		let author = "𝖇𝖊𝖆𝖗".as_bytes().to_vec();
 
 		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::make_free_balance_be(&caller, 10000u32.into());
 
 		Letters::<T>::init_letter(RawOrigin::Signed(caller.clone()).into(), title, author)?;
 
@@ -58,6 +64,8 @@ benchmarks! {
 		let author = "𝖇𝖊𝖆𝖗".as_bytes().to_vec();
 
 		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::make_free_balance_be(&caller, 10000u32.into());
+
 		Letters::<T>::init_letter(RawOrigin::Signed(caller.clone()).into(), title, author)?;
 
 		let letter_id: T::Hash = Letters::<T>::letter_by_index(1);
@@ -66,7 +74,8 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller), letter_id, new_price)
 	verify {
 		let letter_id: T::Hash = Letters::<T>::letter_by_index(1);
-		assert_eq!(Letters::<T>::letter(letter_id).unwrap().price, new_price);
+		let (letter, _) = Letters::<T>::letter(letter_id).unwrap();
+		assert_eq!(letter.price, new_price);
 	}
 
 	transfer {
@@ -74,6 +83,9 @@ benchmarks! {
 		let author = "𝖇𝖊𝖆𝖗".as_bytes().to_vec();
 		let alice: T::AccountId = account("Alice", 0, 0);
 		let bob: T::AccountId = account("Bob", 0, 1);
+
+		T::Currency::make_free_balance_be(&alice, 10000u32.into());
+		T::Currency::make_free_balance_be(&bob, 10000u32.into());
 
 		Letters::<T>::init_letter(RawOrigin::Signed(alice.clone()).into(), title, author)?;
 		let letter_id: T::Hash = Letters::<T>::letter_by_index(1);
@@ -90,7 +102,8 @@ benchmarks! {
 		let alice: T::AccountId = account("Alice", 0, 0);
 		let bob: T::AccountId = account("Bob", 0, 1);
 
-		T::Currency::make_free_balance_be(&bob, 1000u32.into());
+		T::Currency::make_free_balance_be(&alice, 10000u32.into());
+		T::Currency::make_free_balance_be(&bob, 10000u32.into());
 
 		Letters::<T>::init_letter(RawOrigin::Signed(alice.clone()).into(), title, author)?;
 		let letter_id: T::Hash = Letters::<T>::letter_by_index(1);
